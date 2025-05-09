@@ -12,7 +12,8 @@ import numpy as np
 
 class Binarize(InplaceFunction):
 
-    def forward(ctx,input,quant_mode='det',allow_scale=False,inplace=False):
+    #def forward(ctx,input,quant_mode='det',allow_scale=False,inplace=False):
+    def forward(ctx, input, quant_mode='det', allow_scale=False, inplace=False, noise_mean=0.0, noise_std=1.0):
         ctx.inplace = inplace
         if ctx.inplace:
             ctx.mark_dirty(input)
@@ -25,8 +26,14 @@ class Binarize(InplaceFunction):
         if quant_mode=='det':
             return output.div(scale).sign().mul(scale)
         else:
-            return output.div(scale).add_(1).div_(2).add_(torch.rand(output.size()).add(-0.5)).clamp_(0,1).round().mul_(2).add_(-1).mul(scale)
-        
+            #return output.div(scale).add_(1).div_(2).add_(torch.rand(output.size()).add(-0.5)).clamp_(0,1).round().mul_(2).add_(-1).mul(scale)
+            #print("Stochastic Binarization")
+            normed = output.div(scale).add(1).div(2)
+            noise = torch.normal(mean=noise_mean, std=noise_std, size=output.size(), device=output.device)
+            normed = normed + noise
+            binarized = normed.clamp(0, 1).round().mul(2).add(-1).mul(scale)
+            return binarized
+
     def backward(ctx,grad_output):
         #STE 
         grad_input=grad_output
@@ -54,8 +61,8 @@ class Quantize(InplaceFunction):
         grad_input=grad_output
         return grad_input,None,None
 
-def binarized(input,quant_mode='det'):
-      return Binarize.apply(input,quant_mode)  
+def binarized(input,quant_mode='det', noise_std=1.0):
+      return Binarize.apply(input,quant_mode, noise_std)  
 
 def quantize(input,quant_mode,numBits):
       return Quantize.apply(input,quant_mode,numBits) 
@@ -122,7 +129,7 @@ class BinarizeConv2d(nn.Conv2d):
 
     def forward(self, input):
         if input.size(1) != 3:
-            input_b = binarized(input)
+            input_b = binarized(input, quant_mode='stochastic', noise_std=1.23)
         else:
             input_b=input
         weight_b=binarized(self.weight)

@@ -41,7 +41,7 @@ class ResultsLog(object):
         if self.results is None:
             self.results = df
         else:
-            self.results = self.results.append(df, ignore_index=True)
+            self.results = pd.concat([self.results, df], ignore_index=True)
 
     def save(self, title='Training Results'):
         if len(self.figures) > 0:

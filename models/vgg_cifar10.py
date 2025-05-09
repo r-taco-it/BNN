@@ -17,11 +17,11 @@ class AlexNetOWT_BN(nn.Module):
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(128),
 
-            nn.Conv2d(128, 256, kernel_size=3, padding=1, bias=False),
+            BinarizeConv2d(128*self.infl_ratio, 128*self.infl_ratio, kernel_size=3, padding=1, bias=True, groups=2),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(256),
 
-            nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False),
+            BinarizeConv2d(128*self.infl_ratio, 256*self.infl_ratio, kernel_size=3, padding=1, bias=True, groups=2),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(256),
