@@ -28,8 +28,9 @@ class Binarize(InplaceFunction):
         else:
             #return output.div(scale).add_(1).div_(2).add_(torch.rand(output.size()).add(-0.5)).clamp_(0,1).round().mul_(2).add_(-1).mul(scale)
             #print("Stochastic Binarization")
+            normalized = output.abs().max()
             normed = output.div(scale).add(1).div(2)
-            noise = torch.normal(mean=noise_mean, std=noise_std, size=output.size(), device=output.device)
+            noise = torch.normal(mean=noise_mean, std=noise_std/512*normalized*2, size=output.size(), device=output.device)
             normed = normed + noise
             binarized = normed.clamp(0, 1).round().mul(2).add(-1).mul(scale)
             return binarized
