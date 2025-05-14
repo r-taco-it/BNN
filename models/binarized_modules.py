@@ -28,23 +28,18 @@ class Binarize(InplaceFunction):
         if quant_mode=='det':
             return output.div(scale).sign().mul(scale)
         else:
-            #return output.div(scale).add_(1).div_(2).add_(torch.rand(output.size()).add(-0.5)).clamp_(0,1).round().mul_(2).add_(-1).mul(scale)
-            #print("Stochastic Binarization")
-            # Inside your function or module
+            # Stochastic Binarization using truncated Gaussian approximation (GPU-compatible)
             normalized = output.abs().max()
             normed = output.div(scale).add(1).div(2)
 
-            # --- Truncated Gaussian Noise from scipy ---
+            # Truncated Gaussian noise approximation in PyTorch
             a, b = -6, 6  # Truncate at ±2σ
-            std_adj = (noise_std / 512)*20/2 #  Assuming range from 10*sigma
-            #std_adj = noise_std #  Assuming range from 10*sigma
-            trunc_sampler = truncnorm(a, b, loc=noise_mean, scale=std_adj)  # scalar for scipy
+            std_adj = (noise_std / 512) * 20 / 2  # Adjusted std similar to original logic
 
-            # Sample noise using numpy then convert to torch
-            noise_np = trunc_sampler.rvs(size=output.numel()).reshape(output.shape)
-            noise = torch.tensor(noise_np, dtype=output.dtype, device=output.device)
+            # Generate truncated noise (clipped normal)
+            noise = torch.empty_like(output).normal_(mean=noise_mean, std=std_adj)
+            noise = noise.clamp(a * std_adj + noise_mean, b * std_adj + noise_mean)
 
-            # Continue as before
             normed = normed + noise
             binarized = normed.clamp(0, 1).round().mul(2).add(-1).mul(scale)
             return binarized
@@ -53,6 +48,7 @@ class Binarize(InplaceFunction):
         #STE 
         grad_input=grad_output
         return grad_input,None,None,None
+
 
 
 class Quantize(InplaceFunction):
