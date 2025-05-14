@@ -2,6 +2,8 @@ import torch
 import pdb
 import torch.nn as nn
 import math
+from scipy.stats import truncnorm
+import numpy as np
 from torch.autograd import Variable
 from torch.autograd.function  import Function, InplaceFunction
 
@@ -28,9 +30,21 @@ class Binarize(InplaceFunction):
         else:
             #return output.div(scale).add_(1).div_(2).add_(torch.rand(output.size()).add(-0.5)).clamp_(0,1).round().mul_(2).add_(-1).mul(scale)
             #print("Stochastic Binarization")
+            # Inside your function or module
             normalized = output.abs().max()
             normed = output.div(scale).add(1).div(2)
-            noise = torch.normal(mean=noise_mean, std=noise_std/512*normalized*2, size=output.size(), device=output.device)
+
+            # --- Truncated Gaussian Noise from scipy ---
+            a, b = -6, 6  # Truncate at ±2σ
+            std_adj = (noise_std / 512)*20/2 #  Assuming range from 10*sigma
+            #std_adj = noise_std #  Assuming range from 10*sigma
+            trunc_sampler = truncnorm(a, b, loc=noise_mean, scale=std_adj)  # scalar for scipy
+
+            # Sample noise using numpy then convert to torch
+            noise_np = trunc_sampler.rvs(size=output.numel()).reshape(output.shape)
+            noise = torch.tensor(noise_np, dtype=output.dtype, device=output.device)
+
+            # Continue as before
             normed = normed + noise
             binarized = normed.clamp(0, 1).round().mul(2).add(-1).mul(scale)
             return binarized
@@ -130,7 +144,7 @@ class BinarizeConv2d(nn.Conv2d):
 
     def forward(self, input):
         if input.size(1) != 3:
-            input_b = binarized(input, quant_mode='stochastic', noise_std=1.23)
+            input_b = binarized(input, quant_mode='stochastic', noise_std=2.49)
         else:
             input_b=input
         weight_b=binarized(self.weight)
