@@ -8,7 +8,7 @@ class AlexNetOWT_BN(nn.Module):
 
     def __init__(self, num_classes=1000):
         super(AlexNetOWT_BN, self).__init__()
-        self.ratioInfl=3
+        self.ratioInfl=1
         self.features = nn.Sequential(
             BinarizeConv2d(3, int(64*self.ratioInfl), kernel_size=11, stride=4, padding=2),
             nn.MaxPool2d(kernel_size=3, stride=2),
@@ -66,8 +66,8 @@ class AlexNetOWT_BN(nn.Module):
                                          std=[0.229, 0.224, 0.225])
         self.input_transform = {
             'train': transforms.Compose([
-                transforms.Scale(256),
-                transforms.RandomCrop(224),
+                transforms.Resize(256),
+                transforms.RandomResizedCrop(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 normalize
