@@ -15,7 +15,7 @@ import numpy as np
 class Binarize(InplaceFunction):
 
     #def forward(ctx,input,quant_mode='det',allow_scale=False,inplace=False):
-    def forward(ctx, input, quant_mode='det', allow_scale=False, inplace=False, noise_mean=0.0, noise_std=1.0):
+    def forward(ctx, input, quant_mode='det', allow_scale=False, inplace=False):
         ctx.inplace = inplace
         if ctx.inplace:
             ctx.mark_dirty(input)
@@ -36,10 +36,13 @@ class Binarize(InplaceFunction):
             a, b = -6, 6  # Truncate at ±6σ
             #std_adj = (noise_std / 512) * 20 / 2  # Adjusted std similar to original logic
             #std_adj = (noise_std / 512) / 2  # Adjusted std similar to original logic
+            noise_mean=0.047/576
+            noise_std=5.36/576/2
+            #std_adj = (noise_std)  # Adjusted std similar to 
 
             # Generate truncated noise (clipped normal)
             noise = torch.empty_like(output).normal_(mean=noise_mean, std=noise_std)
-            noise = noise.clamp(a * std_adj + noise_mean, b * std_adj + noise_mean)
+            noise = noise.clamp(a * noise_std + noise_mean, b * noise_std + noise_mean)
 
             normed = normed + noise
             binarized = normed.clamp(0, 1).round().mul(2).add(-1).mul(scale)
@@ -73,8 +76,8 @@ class Quantize(InplaceFunction):
         grad_input=grad_output
         return grad_input,None,None
 
-def binarized(input,quant_mode='det', noise_std=1.0):
-      return Binarize.apply(input,quant_mode, noise_std)  
+def binarized(input,quant_mode='det'):
+      return Binarize.apply(input,quant_mode)  
 
 def quantize(input,quant_mode,numBits):
       return Quantize.apply(input,quant_mode,numBits) 
@@ -141,8 +144,7 @@ class BinarizeConv2d(nn.Conv2d):
 
     def forward(self, input):
         if input.size(1) != 3:
-            input_b = binarized(input, quant_mode='stochastic', noise_mean=0.0, noise_std=5.36/576/2)
-            #input_b = binarized(input, quant_mode='stochastic', noise_mean=0.047/576, noise_std=5.36/576/2)
+            input_b = binarized(input, quant_mode='stochastic')
         else:
             input_b=input
         weight_b=binarized(self.weight)
