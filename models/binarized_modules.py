@@ -35,10 +35,10 @@ class Binarize(InplaceFunction):
             # Truncated Gaussian noise approximation in PyTorch
             a, b = -6, 6  # Truncate at ±6σ
             #std_adj = (noise_std / 512) * 20 / 2  # Adjusted std similar to original logic
-            std_adj = (noise_std / 512) / 2  # Adjusted std similar to original logic
+            #std_adj = (noise_std / 512) / 2  # Adjusted std similar to original logic
 
             # Generate truncated noise (clipped normal)
-            noise = torch.empty_like(output).normal_(mean=noise_mean, std=std_adj)
+            noise = torch.empty_like(output).normal_(mean=noise_mean, std=noise_std)
             noise = noise.clamp(a * std_adj + noise_mean, b * std_adj + noise_mean)
 
             normed = normed + noise
@@ -141,7 +141,8 @@ class BinarizeConv2d(nn.Conv2d):
 
     def forward(self, input):
         if input.size(1) != 3:
-            input_b = binarized(input, quant_mode='stochastic', noise_std=2.49)
+            input_b = binarized(input, quant_mode='stochastic', noise_mean=0.0, noise_std=5.36/576/2)
+            #input_b = binarized(input, quant_mode='stochastic', noise_mean=0.047/576, noise_std=5.36/576/2)
         else:
             input_b=input
         weight_b=binarized(self.weight)
