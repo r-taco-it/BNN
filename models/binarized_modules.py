@@ -33,8 +33,9 @@ class Binarize(InplaceFunction):
             normed = output.div(scale).add(1).div(2)
 
             # Truncated Gaussian noise approximation in PyTorch
-            a, b = -6, 6  # Truncate at ±2σ
-            std_adj = (noise_std / 512) * 20 / 2  # Adjusted std similar to original logic
+            a, b = -6, 6  # Truncate at ±6σ
+            #std_adj = (noise_std / 512) * 20 / 2  # Adjusted std similar to original logic
+            std_adj = (noise_std / 512) / 2  # Adjusted std similar to original logic
 
             # Generate truncated noise (clipped normal)
             noise = torch.empty_like(output).normal_(mean=noise_mean, std=std_adj)
